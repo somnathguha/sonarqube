@@ -38,7 +38,20 @@ export function searchWebhooks(data: {
   organization: string | undefined;
   project?: string;
 }): Promise<{ webhooks: Webhook[] }> {
-  return getJSON('/api/webhooks/list', data).catch(throwGlobalError);
+  return getJSON('/api/webhooks/list', data)
+    .catch(throwGlobalError)
+    .then(({ webhooks }) => ({
+      webhooks: webhooks.map((webhook: Webhook) => ({
+        ...webhook,
+        latestDelivery: {
+          at: '2017-12-23T23:00:00.000Z',
+          durationMs: 20,
+          httpStatus: 200,
+          id: '2',
+          success: true
+        }
+      }))
+    }));
 }
 
 export function updateWebhook(data: {
@@ -59,11 +72,46 @@ export function searchDeliveries(data: {
   deliveries: WebhookDelivery[];
   paging: Paging;
 }> {
-  return getJSON('/api/webhooks/deliveries', data).catch(throwGlobalError);
+  return getJSON('/api/webhooks/deliveries', data)
+    .catch(() => ({
+      deliveries: [
+        {
+          at: '2017-12-23T23:00:00.000Z',
+          durationMs: 20,
+          httpStatus: 200,
+          id: '2',
+          success: true
+        },
+        {
+          at: '2017-12-01T21:00:00.000Z',
+          durationMs: 122,
+          httpStatus: 500,
+          id: '1',
+          success: false
+        }
+      ],
+      paging: {
+        pageIndex: 1,
+        pageSize: 10,
+        total: 15
+      }
+    }))
+    .catch(throwGlobalError);
 }
 
 export function getDelivery(data: {
   deliveryId: string;
 }): Promise<{ delivery: WebhookDelivery & { payload: string } }> {
-  return getJSON('/api/webhooks/delivery', data).catch(throwGlobalError);
+  return getJSON('/api/webhooks/delivery', data)
+    .catch(() => ({
+      delivery: {
+        at: '2017-12-01T21:00:00.000Z',
+        durationMs: 20,
+        httpStatus: 200,
+        id: '2',
+        payload: '{"status": "SUCCESS"}',
+        success: true
+      }
+    }))
+    .catch(throwGlobalError);
 }
