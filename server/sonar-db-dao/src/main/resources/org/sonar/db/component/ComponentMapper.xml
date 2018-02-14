@@ -482,7 +482,9 @@
       p.path as path,
       fs.line_hashes as lineHashes
     from projects p
-    inner join file_sources fs on fs.file_uuid = p.uuid
+    inner join file_sources fs on
+      fs.file_uuid = p.uuid
+      and fs.data_type = 'SOURCE'
     where
       p.enabled=${_true}
       and p.copy_component_uuid is null
