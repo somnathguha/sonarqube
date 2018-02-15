@@ -45,7 +45,7 @@ public class FileSourceDto {
   private static final String SIZE_LIMIT_EXCEEDED_EXCEPTION_MESSAGE = "Protocol message was too large.  May be malicious.  " +
     "Use CodedInputStream.setSizeLimit() to increase the size limit.";
   private static final Joiner LINE_RETURN_JOINER = Joiner.on('\n');
-  private static final Splitter LINES_HASHES_SPLITTER = on('\n');
+  static final Splitter LINES_HASHES_SPLITTER = on('\n');
 
   private Long id;
   private String projectUuid;

@@ -41,6 +41,21 @@
       and data_type=#{dataType}
   </select>
 
+  <select id="scrollLineHashes" parameterType="map" resultType="org.sonar.db.source.LineHashesWithKeyDto" fetchSize="${_scrollFetchSize}" resultSetType="FORWARD_ONLY">
+    select
+      p.kee as kee,
+      fs.line_hashes as rawLineHashes
+    from projects p
+    inner join file_sources fs on
+      fs.file_uuid = p.uuid
+      and fs.data_type = 'SOURCE'
+    where
+      p.kee in
+      <foreach collection="fileKeys" item="fileKey" open="(" close=")" separator=",">
+        #{fileKey,jdbcType=VARCHAR}
+      </foreach>
+  </select>
+
   <insert id="insert" parameterType="org.sonar.db.source.FileSourceDto" useGeneratedKeys="false">
     insert into file_sources
     (
