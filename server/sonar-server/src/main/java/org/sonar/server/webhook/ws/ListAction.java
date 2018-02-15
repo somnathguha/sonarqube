@@ -35,8 +35,8 @@ import org.sonar.db.webhook.WebhookDeliveryLiteDto;
 import org.sonar.db.webhook.WebhookDto;
 import org.sonar.server.organization.DefaultOrganizationProvider;
 import org.sonar.server.user.UserSession;
+import org.sonarqube.ws.Webhooks;
 import org.sonarqube.ws.Webhooks.ListWsResponse.Builder;
-import org.sonarqube.ws.Webhooks.ListWsResponse.List.LatestDelivery;
 
 import static java.util.Optional.ofNullable;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
@@ -138,21 +138,27 @@ public class ListAction implements WebhooksWsAction {
     Builder builder = newBuilder();
     webhookDtos
       .stream()
-      .forEach(webhook -> builder
-        .addWebhooksBuilder().setKey(webhook.getUuid()).setName(webhook.getName()).setUrl(webhook.getUrl())
-        .setLatestDelivery(lastDelivery(builder.addWebhooksBuilder().getLatestDeliveryBuilder(), webhook, lastDeliveries)));
+      .forEach(webhook -> {
+        Webhooks.ListWsResponse.ResponseElement.Builder elementBuilder = builder.addWebhooksBuilder();
+        elementBuilder
+          .setKey(webhook.getUuid())
+          .setName(webhook.getName())
+          .setUrl(webhook.getUrl());
+        addLastDelivery(elementBuilder, webhook, lastDeliveries);
+      });
+
     writeProtobuf(builder.build(), request, response);
   }
 
-  private static LatestDelivery lastDelivery(LatestDelivery.Builder builder, WebhookDto webhook, Map<String, WebhookDeliveryLiteDto> lastDeliveries) {
+  private static void addLastDelivery(Webhooks.ListWsResponse.ResponseElement.Builder builder, WebhookDto webhook, Map<String, WebhookDeliveryLiteDto> lastDeliveries) {
     if (lastDeliveries.containsKey(webhook)) {
       WebhookDeliveryLiteDto delivery = lastDeliveries.get(webhook.getUuid());
-      builder.setId(delivery.getUuid())
+      builder.getLatestDeliveryBuilder().setId(delivery.getUuid())
         .setAt(Long.toString(delivery.getCreatedAt()))
         .setHttpStatus(Integer.toString(delivery.getHttpStatus()))
-        .setDurationMs(Integer.toString(delivery.getDurationMs()));
+        .setDurationMs(Integer.toString(delivery.getDurationMs()))
+        .build();
     }
-    return builder.build();
   }
 
   private OrganizationDto defaultOrganizationDto(DbSession dbSession) {

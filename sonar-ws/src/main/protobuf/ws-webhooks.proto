@@ -28,22 +28,24 @@ option optimize_for = SPEED;
 
 // GET api/webhooks/list
 message ListWsResponse {
-  repeated List webhooks = 1;
 
-  message List {
+  repeated ResponseElement webhooks = 1;
+
+  message LatestDelivery {
+    optional string id = 1;
+    optional string at = 2;
+    optional string success = 3;
+    optional string httpStatus = 4;
+    optional string durationMs = 5;
+  }
+
+  message ResponseElement {
     optional string key = 1;
     optional string name = 2;
     optional string url = 3;
     optional LatestDelivery latestDelivery = 4;
-
-    message LatestDelivery {
-      optional string id = 1;
-      optional string at = 2;
-      optional string success = 3;
-      optional string httpStatus = 4;
-      optional string durationMs = 5;
-    }
   }
+
 }
 
 // POST api/webhooks/create

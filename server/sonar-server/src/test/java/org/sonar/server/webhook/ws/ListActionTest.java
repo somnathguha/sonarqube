@@ -19,6 +19,7 @@
  */
 package org.sonar.server.webhook.ws;
 
+import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -31,6 +32,7 @@ import org.sonar.db.component.ComponentDto;
 import org.sonar.db.organization.OrganizationDbTester;
 import org.sonar.db.organization.OrganizationDto;
 import org.sonar.db.webhook.WebhookDbTester;
+import org.sonar.db.webhook.WebhookDeliveryDbTester;
 import org.sonar.db.webhook.WebhookDto;
 import org.sonar.server.exceptions.ForbiddenException;
 import org.sonar.server.exceptions.NotFoundException;
@@ -39,7 +41,6 @@ import org.sonar.server.organization.DefaultOrganizationProvider;
 import org.sonar.server.tester.UserSessionRule;
 import org.sonar.server.ws.WsActionTester;
 import org.sonarqube.ws.Webhooks.ListWsResponse;
-import org.sonarqube.ws.Webhooks.ListWsResponse.List;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +72,7 @@ public class ListActionTest {
 
   private ComponentDbTester componentDbTester = db.components();
   private WebhookDbTester webhookDbTester = db.webhooks();
+  private WebhookDeliveryDbTester webhookDeliveryDbTester = db.webhookDelivery();
   private OrganizationDbTester organizationDbTester = db.organizations();
   private WsActionTester wsActionTester = new WsActionTester(underTest);
 
@@ -92,7 +94,39 @@ public class ListActionTest {
   }
 
   @Test
-  public void List_global_webhooks() {
+  public void list_webhooks_and_their_latest_delivery() {
+
+    WebhookDto dto1 = webhookDbTester.insertWebhook(db.getDefaultOrganization());
+//    webhookDeliveryDbTester.insert()
+
+    userSession.logIn().addPermission(ADMINISTER, db.getDefaultOrganization().getUuid());
+
+    ListWsResponse response = wsActionTester.newRequest().executeProtobuf(ListWsResponse.class);
+
+
+    List<ListWsResponse.ResponseElement> elements = response.getWebhooksList();
+    assertThat(elements.size()).isEqualTo(1);
+
+
+  }
+
+  @Test
+  public void list_webhooks_when_no_delivery() {
+
+    WebhookDto dto = webhookDbTester.insertWebhook(db.getDefaultOrganization());
+
+    userSession.logIn().addPermission(ADMINISTER, db.getDefaultOrganization().getUuid());
+
+    ListWsResponse response = wsActionTester.newRequest()
+      .executeProtobuf(ListWsResponse.class);
+
+    response.getWebhooksList();
+
+
+  }
+
+  @Test
+  public void list_global_webhooks() {
 
     WebhookDto dto1 = webhookDbTester.insertWebhook(db.getDefaultOrganization());
     WebhookDto dto2 = webhookDbTester.insertWebhook(db.getDefaultOrganization());
@@ -102,14 +136,14 @@ public class ListActionTest {
       .executeProtobuf(ListWsResponse.class);
 
     assertThat(response.getWebhooksList())
-      .extracting(List::getName, List::getUrl)
+      .extracting(ListWsResponse.ResponseElement::getName, ListWsResponse.ResponseElement::getUrl)
       .contains(tuple(dto1.getName(), dto1.getUrl()),
         tuple(dto2.getName(), dto2.getUrl()));
 
   }
 
   @Test
-  public void List_project_webhooks_when_no_organization_is_provided() {
+  public void list_project_webhooks_when_no_organization_is_provided() {
 
     ComponentDto project1 = componentDbTester.insertPrivateProject();
     userSession.logIn().addProjectPermission(ADMIN, project1);
@@ -122,14 +156,14 @@ public class ListActionTest {
       .executeProtobuf(ListWsResponse.class);
 
     assertThat(response.getWebhooksList())
-      .extracting(List::getName, List::getUrl)
+      .extracting(ListWsResponse.ResponseElement::getName, ListWsResponse.ResponseElement::getUrl)
       .contains(tuple(dto1.getName(), dto1.getUrl()),
         tuple(dto2.getName(), dto2.getUrl()));
 
   }
 
   @Test
-  public void List_organization_webhooks() {
+  public void list_organization_webhooks() {
 
     OrganizationDto organizationDto = organizationDbTester.insert();
     WebhookDto dto1 = webhookDbTester.insertWebhook(organizationDto);
@@ -141,14 +175,14 @@ public class ListActionTest {
       .executeProtobuf(ListWsResponse.class);
 
     assertThat(response.getWebhooksList())
-      .extracting(List::getName, List::getUrl)
+      .extracting(ListWsResponse.ResponseElement::getName, ListWsResponse.ResponseElement::getUrl)
       .contains(tuple(dto1.getName(), dto1.getUrl()),
         tuple(dto2.getName(), dto2.getUrl()));
 
   }
 
   @Test
-  public void List_project_webhooks_when_organization_is_provided() {
+  public void list_project_webhooks_when_organization_is_provided() {
 
     OrganizationDto organization = organizationDbTester.insert();
     ComponentDto project = componentDbTester.insertPrivateProject(organization);
@@ -163,7 +197,7 @@ public class ListActionTest {
       .executeProtobuf(ListWsResponse.class);
 
     assertThat(response.getWebhooksList())
-      .extracting(List::getName, List::getUrl)
+      .extracting(ListWsResponse.ResponseElement::getName, ListWsResponse.ResponseElement::getUrl)
       .contains(tuple(dto1.getName(), dto1.getUrl()),
         tuple(dto2.getName(), dto2.getUrl()));
 
