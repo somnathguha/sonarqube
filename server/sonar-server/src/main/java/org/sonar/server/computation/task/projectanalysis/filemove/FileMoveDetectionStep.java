@@ -45,6 +45,7 @@ import org.sonar.api.utils.log.Logger;
 import org.sonar.api.utils.log.Loggers;
 import org.sonar.core.hash.SourceLinesHashesComputer;
 import org.sonar.core.util.CloseableIterator;
+import org.sonar.core.util.logs.Profiler;
 import org.sonar.core.util.stream.MoreCollectors;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
@@ -96,7 +97,9 @@ public class FileMoveDetectionStep implements ComputationStep {
       LOG.debug("First analysis. Do nothing.");
       return;
     }
+    Profiler p = Profiler.createIfTrace(LOG);
 
+    p.start();
     Map<String, DbComponent> dbFilesByKey = getDbFilesByKey();
     if (dbFilesByKey.isEmpty()) {
       LOG.debug("Previous snapshot has no file. Do nothing.");
@@ -120,10 +123,13 @@ public class FileMoveDetectionStep implements ComputationStep {
 
     // retrieve file data from report
     Map<String, File> reportFileSourcesByKey = getReportFileSourcesByKey(reportFilesByKey, addedFileKeys);
+    p.stopTrace("loaded");
 
     // compute score matrix
+    p.start();
     ScoreMatrix scoreMatrix = computeScoreMatrix(dbFilesByKey, removedFileKeys, reportFileSourcesByKey);
     printIfDebug(scoreMatrix);
+    p.stopTrace("Score matrix computed");
 
     // not a single match with score higher than MIN_REQUIRED_SCORE => abort
     if (scoreMatrix.getMaxScore() < MIN_REQUIRED_SCORE) {
@@ -131,9 +137,11 @@ public class FileMoveDetectionStep implements ComputationStep {
       return;
     }
 
+    p.start();
     MatchesByScore matchesByScore = MatchesByScore.create(scoreMatrix);
 
     ElectedMatches electedMatches = electMatches(removedFileKeys, reportFileSourcesByKey, matchesByScore);
+    p.stopTrace("Matches elected");
 
     registerMatches(dbFilesByKey, reportFilesByKey, electedMatches);
   }
@@ -271,9 +279,9 @@ public class FileMoveDetectionStep implements ComputationStep {
         e.printStackTrace();
       }
     }
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("ScoreMatrix:\n" + scoreMatrix.toCsv(';'));
-//    }
+    // if (LOG.isDebugEnabled()) {
+    // LOG.debug("ScoreMatrix:\n" + scoreMatrix.toCsv(';'));
+    // }
   }
 
   private static ElectedMatches electMatches(Set<String> dbFileKeys, Map<String, File> reportFileSourcesByKey, MatchesByScore matchesByScore) {
