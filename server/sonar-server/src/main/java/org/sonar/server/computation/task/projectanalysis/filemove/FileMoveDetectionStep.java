@@ -243,41 +243,6 @@ public class FileMoveDetectionStep implements ComputationStep {
       }
     }
 
-//    try (DbSession dbSession = dbClient.openSession(false)) {
-//      for (int removeFileIndex = 0; removeFileIndex < removedFiles.length; removeFileIndex++) {
-//        ScoreMatrix.ScoreFile removedFile = removedFiles[removeFileIndex];
-//        int lowerBound = (int) Math.floor(removedFile.getLineCount() * 0.84);
-//        int upperBound = (int) Math.ceil(removedFile.getLineCount() * 1.18);
-//        // short circuit if all files are out of bound
-//        if (newFiles[0].getLineCount() <= lowerBound || newFiles[lastNewFileIndex].getLineCount() >= upperBound) {
-//          continue;
-//        }
-//
-//        File fileInDb = null;
-//        for (int newFileIndex = 0; newFileIndex <= lastNewFileIndex; newFileIndex++) {
-//          ScoreMatrix.ScoreFile newFile = newFiles[newFileIndex];
-//          if (newFile.getLineCount() >= upperBound) {
-//            continue;
-//          }
-//          if (newFile.getLineCount() <= lowerBound) {
-//            break;
-//          }
-//          if (fileInDb == null) {
-//            fileInDb = getFile(dbSession, dtosByKey.get(removedFile.getFileKey()));
-//            if (fileInDb == null) {
-//              break;
-//            }
-//          }
-//          File unmatchedFile = reportFileSourcesByKey.get(newFile.getFileKey());
-//          int score = fileSimilarity.score(fileInDb, unmatchedFile);
-//          scoreMatrix[removeFileIndex][newFileIndex] = score;
-//          if (score > maxScore) {
-//            maxScore = score;
-//          }
-//        }
-//      }
-//    }
-
     return new ScoreMatrix(removedFiles, newFiles, scoreMatrix, rowHandler.getMaxScore());
   }
 
