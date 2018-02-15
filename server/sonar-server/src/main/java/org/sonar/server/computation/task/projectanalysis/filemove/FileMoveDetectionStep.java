@@ -19,12 +19,10 @@
  */
 package org.sonar.server.computation.task.projectanalysis.filemove;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import java.io.BufferedWriter;
@@ -62,15 +60,12 @@ import org.sonar.server.computation.task.projectanalysis.filemove.FileSimilarity
 import org.sonar.server.computation.task.projectanalysis.source.SourceLinesRepository;
 import org.sonar.server.computation.task.step.ComputationStep;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Splitter.on;
 import static com.google.common.collect.FluentIterable.from;
 import static org.sonar.server.computation.task.projectanalysis.component.ComponentVisitor.Order.POST_ORDER;
 
 public class FileMoveDetectionStep implements ComputationStep {
   protected static final int MIN_REQUIRED_SCORE = 85;
   private static final Logger LOG = Loggers.get(FileMoveDetectionStep.class);
-  private static final Splitter LINES_HASHES_SPLITTER = on('\n');
 
   private final AnalysisMetadataHolder analysisMetadataHolder;
   private final TreeRootHolder rootHolder;
@@ -159,8 +154,7 @@ public class FileMoveDetectionStep implements ComputationStep {
       dbClient.componentDao().scrollAllFilesForFileMove(dbSession, rootHolder.getRoot().getUuid(),
         resultContext -> {
           FileMoveRowDto row = resultContext.getResultObject();
-          builder.add(new DbComponent(row.getId(), row.getKey(), row.getUuid(), row.getPath(),
-            row.getLineHashes().map(s -> Iterables.size(LINES_HASHES_SPLITTER.split(s))).orElse(0)));
+          builder.add(new DbComponent(row.getId(), row.getKey(), row.getUuid(), row.getPath(), row.getLineCount()));
         });
       return builder.build().stream()
         .collect(MoreCollectors.uniqueIndex(DbComponent::getKey));
@@ -262,8 +256,7 @@ public class FileMoveDetectionStep implements ComputationStep {
     if (fileSourceDto == null) {
       return null;
     }
-    String lineHashes = firstNonNull(fileSourceDto.getLineHashes(), "");
-    return new File(dbComponent.getPath(), LINES_HASHES_SPLITTER.splitToList(lineHashes));
+    return new File(dbComponent.getPath(), fileSourceDto.getLineHashes());
   }
 
   private static void printIfDebug(ScoreMatrix scoreMatrix) {
