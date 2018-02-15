@@ -39,7 +39,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import org.apache.ibatis.session.ResultContext;
@@ -53,7 +52,6 @@ import org.sonar.core.util.stream.MoreCollectors;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
 import org.sonar.db.component.FileMoveRowDto;
-import org.sonar.db.source.FileSourceDto;
 import org.sonar.db.source.LineHashesWithKeyDto;
 import org.sonar.server.computation.task.projectanalysis.analysis.AnalysisMetadataHolder;
 import org.sonar.server.computation.task.projectanalysis.component.Component;
@@ -246,36 +244,36 @@ public class FileMoveDetectionStep implements ComputationStep {
     return new ScoreMatrix(removedFiles, newFiles, scoreMatrix, rowHandler.getMaxScore());
   }
 
-  private class LineHashesWithKeyDtoResultHandler implements ResultHandler<LineHashesWithKeyDto> {
-
+  private final class LineHashesWithKeyDtoResultHandler implements ResultHandler<LineHashesWithKeyDto> {
     private final Map<String, Integer> removedFilesIndexes;
     private final ScoreMatrix.ScoreFile[] removedFiles;
-    private final int lastNewFileIndex;
     private final ScoreMatrix.ScoreFile[] newFiles;
-    private final Map<String, File> reportFileSourcesByKey;
+    private final Map<String, File> newFileSourcesByKey;
     private final int[][] scoreMatrix;
     private int maxScore;
 
-    public LineHashesWithKeyDtoResultHandler(Map<String, Integer> removedFilesIndexes,
-      ScoreMatrix.ScoreFile[] removedFiles, ScoreMatrix.ScoreFile[] newFiles,
-      Map<String, File> reportFileSourcesByKey,
+    private LineHashesWithKeyDtoResultHandler(Map<String, Integer> removedFilesIndexes, ScoreMatrix.ScoreFile[] removedFiles,
+      ScoreMatrix.ScoreFile[] newFiles, Map<String, File> newFileSourcesByKey,
       int[][] scoreMatrix) {
       this.removedFilesIndexes = removedFilesIndexes;
       this.removedFiles = removedFiles;
-      this.lastNewFileIndex = newFiles.length - 1;
       this.newFiles = newFiles;
-      this.reportFileSourcesByKey = reportFileSourcesByKey;
+      this.newFileSourcesByKey = newFileSourcesByKey;
       this.scoreMatrix = scoreMatrix;
     }
 
     @Override
     public void handleResult(ResultContext<? extends LineHashesWithKeyDto> resultContext) {
       LineHashesWithKeyDto lineHashesDto = resultContext.getResultObject();
+      if (lineHashesDto.getPath() == null) {
+        return;
+      }
       int removeFileIndex = removedFilesIndexes.get(lineHashesDto.getKey());
       ScoreMatrix.ScoreFile removedFile = removedFiles[removeFileIndex];
       int lowerBound = (int) Math.floor(removedFile.getLineCount() * LOWER_BOUND_RATIO);
       int upperBound = (int) Math.ceil(removedFile.getLineCount() * UPPER_BOUND_RATIO);
-      for (int newFileIndex = 0; newFileIndex <= lastNewFileIndex; newFileIndex++) {
+
+      for (int newFileIndex = 0; newFileIndex < newFiles.length; newFileIndex++) {
         ScoreMatrix.ScoreFile newFile = newFiles[newFileIndex];
         if (newFile.getLineCount() >= upperBound) {
           continue;
@@ -283,8 +281,9 @@ public class FileMoveDetectionStep implements ComputationStep {
         if (newFile.getLineCount() <= lowerBound) {
           break;
         }
-        File fileInDb = new File("TODO", lineHashesDto.getLineHashes());
-        File unmatchedFile = reportFileSourcesByKey.get(newFile.getFileKey());
+
+        File fileInDb = new File(lineHashesDto.getPath(), lineHashesDto.getLineHashes());
+        File unmatchedFile = newFileSourcesByKey.get(newFile.getFileKey());
         int score = fileSimilarity.score(fileInDb, unmatchedFile);
         scoreMatrix[removeFileIndex][newFileIndex] = score;
         if (score > maxScore) {
@@ -293,21 +292,9 @@ public class FileMoveDetectionStep implements ComputationStep {
       }
     }
 
-    public int getMaxScore() {
+    int getMaxScore() {
       return maxScore;
     }
-  }
-
-  @CheckForNull
-  private File getFile(DbSession dbSession, DbComponent dbComponent) {
-    if (dbComponent.getPath() == null) {
-      return null;
-    }
-    FileSourceDto fileSourceDto = dbClient.fileSourceDao().selectSourceByFileUuid(dbSession, dbComponent.getUuid());
-    if (fileSourceDto == null) {
-      return null;
-    }
-    return new File(dbComponent.getPath(), fileSourceDto.getLineHashes());
   }
 
   private static void printIfDebug(ScoreMatrix scoreMatrix) {
