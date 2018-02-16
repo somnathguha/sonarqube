@@ -30,8 +30,10 @@ import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
 import org.sonar.db.DbTester;
 
+import static com.google.common.collect.ImmutableList.of;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.sonar.db.webhook.WebhookDbTesting.newWebhookDeliveryDto;
+import static org.sonar.db.webhook.WebhookTesting.newProjectWebhook;
 
 public class WebhookDeliveryDaoTest {
 
@@ -143,7 +145,24 @@ public class WebhookDeliveryDaoTest {
     assertThat(deliveries).extracting(WebhookDeliveryLiteDto::getUuid).containsExactlyInAnyOrder("D3", "D4", "D5");
   }
 
+  @Test
+  public void selectLatestDelivery_of_a_webhook() {
+    WebhookDto webhook1 = dbWebhooks.insert(newProjectWebhook("COMPONENT_1"));
+    underTest.insert(dbSession, newDto("WH1-DELIVERY-1-UUID", webhook1.getUuid(), "COMPONENT_1", "TASK_1").setCreatedAt(BEFORE));
+    underTest.insert(dbSession, newDto("WH1-DELIVERY-2-UUID", webhook1.getUuid(), "COMPONENT_1", "TASK_2").setCreatedAt(NOW));
 
+    WebhookDto webhook2 = dbWebhooks.insert(newProjectWebhook("COMPONENT_1"));
+    underTest.insert(dbSession, newDto("WH2-DELIVERY-1-UUID", webhook2.getUuid(), "COMPONENT_1", "TASK_1").setCreatedAt(BEFORE));
+    underTest.insert(dbSession, newDto("WH2-DELIVERY-2-UUID", webhook2.getUuid(), "COMPONENT_1", "TASK_2").setCreatedAt(NOW));
+
+    Map<String, WebhookDeliveryLiteDto> map = underTest.selectLatestDeliveries(dbSession, of(webhook1, webhook2));
+
+    assertThat(map).containsKeys(webhook1.getUuid());
+    assertThat(map.get(webhook1.getUuid())).extracting(WebhookDeliveryLiteDto::getUuid).contains("WH1-DELIVERY-2-UUID");
+
+    assertThat(map).containsKeys(webhook2.getUuid());
+    assertThat(map.get(webhook2.getUuid())).extracting(WebhookDeliveryLiteDto::getUuid).contains("WH2-DELIVERY-2-UUID");
+  }
 
   @Test
   public void insert_row_with_only_mandatory_columns() {
